@@ -20,9 +20,16 @@ export default defineManifest({
   },
   content_scripts: [{
     js: ['src/content/main.jsx'],
-    matches: ['https://*/*'],
+    matches: ['https://*/*', 'http://*/*'],
+    run_at: 'document_idle',
+    all_frames: false
   }],
   side_panel: {
     default_path: 'src/sidepanel/index.html',
   },
+  // web_accessible_resources not needed - CSS is now inlined via Vite ?inline
+  // web_accessible_resources: [{
+  //   resources: ['src/index.css'],
+  //   matches: ['https://*/*', 'http://*/*']
+  // }],
 })

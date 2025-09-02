@@ -1,14 +1,10 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './views/App.jsx'
+// Perfect Prompt Content Script Entry Point
+console.log('[Perfect Prompt] Content script loading...')
 
-console.log('[CRXJS] Hello world from content script!')
+// Import our magic icon manager (Plain JS)
+import './magicIcon.js'
 
-const container = document.createElement('div')
-container.id = 'crxjs-app'
-document.body.appendChild(container)
-createRoot(container).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Import React portal bridge (loaded but not executed until needed)
+import './reactPortal.jsx'
+
+console.log('[Perfect Prompt] Content script loaded successfully')
