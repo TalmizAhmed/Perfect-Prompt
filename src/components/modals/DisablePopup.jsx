@@ -38,8 +38,7 @@ export function DisablePopup({
       <div
         className={cn(
           "fixed z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg",
-          "rounded-lg border border-border bg-card text-card-foreground",
-          "animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]"
+          "rounded-lg border border-border bg-card text-card-foreground"
         )}
         style={{
           position: 'fixed',
