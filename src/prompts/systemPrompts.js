@@ -87,7 +87,12 @@ Focus on:
 
 Keep questions concise and actionable.
 
-CRITICAL OUTPUT RULE: You must respond with PURE JSON only. Your response must start with { and end with }. DO NOT use markdown code blocks like \`\`\`json. DO NOT add any explanations before or after the JSON.`
+CRITICAL OUTPUT RULE: You MUST respond with PURE JSON only. Your response must start with { and end with }. 
+- NO markdown code blocks (no \`\`\`json)
+- NO explanations before or after JSON
+- ENSURE all array elements have commas between them
+- ENSURE proper JSON syntax: {"questions": ["question 1", "question 2"]}
+- TEST your JSON mentally before responding`
 
 /**
  * Template generation system prompt

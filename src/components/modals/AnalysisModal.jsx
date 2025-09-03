@@ -1,8 +1,15 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons"
+import { ChevronUpIcon, ChevronDownIcon, CheckCircledIcon, ExclamationTriangleIcon, CrossCircledIcon, Cross2Icon } from "@radix-ui/react-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Progress } from "@/components/ui/progress"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { LLMService } from "@/services/llm/LLMService"
 
@@ -275,52 +282,59 @@ export function AnalysisModal({
         {/* Compact Header */}
         <div className="flex items-center justify-between mb-3">
           <DialogPrimitive.Title className="text-lg font-semibold">
-            🎯 Perfect Prompt Analysis
+            Perfect Prompt Analysis
           </DialogPrimitive.Title>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-6 w-6 p-0">
-            ✕
+            <Cross2Icon className="h-4 w-4" />
           </Button>
         </div>
         
         <div className="space-y-3">
-          {/* Compact Status Bar */}
+          {/* Professional Status Bar */}
           {analysis && !isAnalyzing && (
-            <div className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
-              <div className="flex items-center space-x-2">
-                <span>📊 Clarity:</span>
-                <span className={`font-medium ${
-                  analysis.vaguenessScore >= 7 ? 'text-green-600' :
-                  analysis.vaguenessScore >= 4 ? 'text-yellow-600' : 
-                  'text-red-600'
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium">Clarity Score:</span>
+                <span className={`text-sm font-mono font-semibold ${
+                  analysis.vaguenessScore >= 7 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : analysis.vaguenessScore >= 4 
+                    ? 'text-yellow-600 dark:text-yellow-400' 
+                    : 'text-red-600 dark:text-red-400'
                 }`}>
                   {analysis.vaguenessScore}/10
                 </span>
-                <span className="text-xs">
-                  {analysis.vaguenessScore >= 7 ? '✅ Clear' :
-                   analysis.vaguenessScore >= 4 ? '⚠️ Needs work' : 
-                   '❌ Too vague'}
-                </span>
               </div>
-              {phase === 'clarifying' && (
-                <span className="text-xs text-muted-foreground">🔍 Asking questions...</span>
-              )}
+              <Badge 
+                variant={analysis.vaguenessScore >= 4 ? 'secondary' : 'destructive'}
+                className={
+                  analysis.vaguenessScore >= 7 
+                    ? 'bg-green-500 text-white dark:bg-green-600 hover:bg-green-500 dark:hover:bg-green-600 pointer-events-none' 
+                    : analysis.vaguenessScore >= 4 
+                    ? 'bg-yellow-500 text-white dark:bg-yellow-600 hover:bg-yellow-500 dark:hover:bg-yellow-600 pointer-events-none' 
+                    : 'pointer-events-none hover:bg-destructive' // Use default destructive styling but no interactions
+                }
+              >
+                {analysis.vaguenessScore >= 7 ? (
+                  <><CheckCircledIcon className="h-3 w-3 mr-1" />Clear</>
+                ) : analysis.vaguenessScore >= 4 ? (
+                  <><ExclamationTriangleIcon className="h-3 w-3 mr-1" />Needs work</>
+                ) : (
+                  <><CrossCircledIcon className="h-3 w-3 mr-1" />Too vague</>
+                )}
+              </Badge>
             </div>
           )}
 
-          {/* Compact Loading */}
+          {/* Professional Loading with Skeleton */}
           {isAnalyzing && (
-            <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded text-sm">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+            <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg text-sm">
+              <Skeleton className="h-3 w-3 rounded-full" />
               <span className="text-muted-foreground">
                 {isDownloading ? `Downloading model ${downloadProgress}%` : 'Analyzing...'}
               </span>
               {isDownloading && downloadProgress > 0 && (
-                <div className="flex-1 bg-secondary rounded-full h-1 max-w-[100px]">
-                  <div 
-                    className="bg-primary h-1 rounded-full transition-all"
-                    style={{ width: `${downloadProgress}%` }}
-                  ></div>
-                </div>
+                <Progress value={downloadProgress} className="flex-1 max-w-[100px] h-2" />
               )}
             </div>
           )}
@@ -331,10 +345,10 @@ export function AnalysisModal({
               {/* Progress Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-blue-900">❓ Clarifying Questions</span>
-                  <span className="text-xs bg-blue-100 px-2 py-1 rounded text-blue-700">
+                  <span className="text-sm font-medium">Clarifying Questions</span>
+                  <Badge variant="outline" className="text-xs pointer-events-none">
                     {currentQuestionIndex + 1} of {clarifyingAnswers.length}
-                  </span>
+                  </Badge>
                 </div>
                 
                 {/* Progress Dots */}
@@ -353,9 +367,9 @@ export function AnalysisModal({
               {/* Current Question */}
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-blue-900 block mb-2">
+                  <Label className="text-sm font-medium text-blue-900 block mb-2">
                     {clarifyingAnswers[currentQuestionIndex]?.question}
-                  </label>
+                  </Label>
                   <Input
                     value={clarifyingAnswers[currentQuestionIndex]?.answer || ''}
                     onChange={(e) => handleAnswerChange(currentQuestionIndex, e.target.value)}
@@ -377,14 +391,14 @@ export function AnalysisModal({
                   >
                     ← Previous
                   </Button>
-                  {currentQuestionIndex < clarifyingAnswers.length - 1 && (
-                    <Button 
-                      size="sm"
-                      onClick={() => setCurrentQuestionIndex(currentQuestionIndex + 1)}
-                    >
-                      Next →
-                    </Button>
-                  )}
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentQuestionIndex(currentQuestionIndex + 1)}
+                    disabled={currentQuestionIndex >= clarifyingAnswers.length - 1}
+                  >
+                    Next →
+                  </Button>
                 </div>
                 
                 <div className="flex space-x-2">
@@ -394,9 +408,6 @@ export function AnalysisModal({
                     className="bg-green-600 hover:bg-green-700"
                   >
                     Optimize Now
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setPhase('final')}>
-                    Skip All
                   </Button>
                 </div>
               </div>
@@ -409,7 +420,7 @@ export function AnalysisModal({
               {/* Main Result - Editable Optimized Prompt */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">✅ Optimized Result:</label>
+                  <Label className="text-sm font-medium">Optimized Result</Label>
                   <Button 
                      variant="ghost" 
                      size="sm" 
@@ -421,38 +432,50 @@ export function AnalysisModal({
                </Button>
                 </div>
                 
-                <textarea
-                  className="w-full p-3 border border-green-300 rounded-md text-sm bg-green-50/30 focus:bg-background focus:border-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/20 min-h-[100px] resize-y"
+                <Textarea
+                  className="border-green-300 bg-green-50/30 focus:bg-background focus:border-green-400 min-h-[100px] resize-y"
                   value={optimizedPrompt}
                   onChange={(e) => setOptimizedPrompt(e.target.value)}
                   placeholder="Optimized prompt will appear here (you can edit it)..."
                 />
               </div>
-              {/* Collapsible Details */}
+              {/* Professional Collapsible Details */}
               {showDetails && (
-                <div className="space-y-2 text-xs">
-                  {/* Issues */}
+                <div className="space-y-3">
+                  <Separator />
+                  
+                  {/* Issues as Alert */}
                   {analysis.issues?.length > 0 && (
-                    <div>
-                      <span className="font-medium text-red-600">Issues:</span>
-                      <ul className="mt-1 space-y-1 text-red-700">
-                        {analysis.issues.map((issue, index) => (
-                          <li key={index}>• {issue}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <Alert variant="destructive">
+                      <CrossCircledIcon className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="space-y-1">
+                          <span className="font-medium text-xs">Issues Found:</span>
+                          <ul className="mt-1 space-y-1 text-xs">
+                            {analysis.issues.map((issue, index) => (
+                              <li key={index}>• {issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   
-                  {/* Suggestions */}
+                  {/* Suggestions as Alert */}
                   {analysis.suggestions?.length > 0 && (
-                    <div>
-                      <span className="font-medium text-blue-600">Suggestions:</span>
-                      <ul className="mt-1 space-y-1 text-blue-700">
-                        {analysis.suggestions.map((suggestion, index) => (
-                          <li key={index}>• {suggestion}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <Alert>
+                      <ExclamationTriangleIcon className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="space-y-1">
+                          <span className="font-medium text-xs">Suggestions:</span>
+                          <ul className="mt-1 space-y-1 text-xs">
+                            {analysis.suggestions.map((suggestion, index) => (
+                              <li key={index}>• {suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
               )}
