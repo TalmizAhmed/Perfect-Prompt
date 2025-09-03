@@ -7,11 +7,22 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent } from "@/components/ui/card"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { cn } from "@/lib/utils"
 import { LLMService } from "@/services/llm/LLMService"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+
+
+
+// Simple form schema - no validation constraints (handled in logic)
+const formSchema = z.object({
+  optimizationGoal: z.string().optional(),
+  clarifyingAnswer: z.string().optional()
+})
 
 export function AnalysisModal({ 
   isOpen, 
@@ -21,20 +32,28 @@ export function AnalysisModal({
   onOptimize = () => {},
   onApply = () => {}
 }) {
-  const [isAnalyzing, setIsAnalyzing] = React.useState(false)
-  const [analysis, setAnalysis] = React.useState(null)
+  // Form setup
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      optimizationGoal: "",
+      clarifyingAnswer: ""
+    }
+  })
+
+  // Component state
+  const [clarifyingQuestion, setClarifyingQuestion] = React.useState("")
   const [optimizedPrompt, setOptimizedPrompt] = React.useState("")
   
-  // Clarifying questions flow state
-  const [clarifyingQuestions, setClarifyingQuestions] = React.useState([])
-  const [clarifyingAnswers, setClarifyingAnswers] = React.useState([])
-  const [isGeneratingQuestions, setIsGeneratingQuestions] = React.useState(false)
-  const [showClarifyingQuestions, setShowClarifyingQuestions] = React.useState(false)
-  const [phase, setPhase] = React.useState('initial') // 'initial' | 'clarifying' | 'final'
-  const [downloadProgress, setDownloadProgress] = React.useState(0)
-  const [isDownloading, setIsDownloading] = React.useState(false)
+  // Background clarity analysis (informational only)
+  const [clarity, setClarity] = React.useState(null)
+  const [isAnalyzingClarity, setIsAnalyzingClarity] = React.useState(false)
+  
+  // Process states  
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = React.useState(false)
+  const [isOptimizing, setIsOptimizing] = React.useState(false)
   const [showDetails, setShowDetails] = React.useState(false)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0)
+  const [showResults, setShowResults] = React.useState(false)
 
   // Get field info for context
   const fieldInfo = React.useMemo(() => {
@@ -47,192 +66,120 @@ export function AnalysisModal({
     }
   }, [field])
 
-  // Analyze prompt when modal opens
+  // Start background processes when modal opens (non-blocking)
   React.useEffect(() => {
-    if (isOpen && prompt && !analysis) {
-      analyzePrompt()
+    if (isOpen && prompt) {
+      startBackgroundClarityAnalysis()
+      generateClarifyingQuestion() // Generate immediately, independent of goal
     }
-  }, [isOpen, prompt, analysis])
+  }, [isOpen, prompt])
 
   // Reset state when modal closes
   React.useEffect(() => {
     if (!isOpen) {
-      setAnalysis(null)
+      form.reset() // Reset form values
+      setClarifyingQuestion('')
       setOptimizedPrompt('')
-      setClarifyingQuestions([])
-      setClarifyingAnswers([])
-      setShowClarifyingQuestions(false)
-      setPhase('initial')
-      setIsAnalyzing(false)
-      setIsGeneratingQuestions(false)
-      setDownloadProgress(0)
-      setIsDownloading(false)
-      setCurrentQuestionIndex(0) // Reset stepper
+      setClarity(null)
+      setIsAnalyzingClarity(false)
+      setIsGeneratingQuestion(false)
+      setIsOptimizing(false)
+      setShowDetails(false)
+      setShowResults(false)
     }
-  }, [isOpen])
+  }, [isOpen, form])
 
-  const analyzePrompt = async () => {
-    setIsAnalyzing(true)
-    setAnalysis(null) // Clear previous results
-    
-    try {
-      console.log('[AnalysisModal] Starting analysis...')
-      
-      // Get LLMService instance
-      console.log('[AnalysisModal] Getting LLMService instance...')
-      const llmService = LLMService.getInstance()
-      console.log('[AnalysisModal] LLMService instance obtained:', llmService)
-      
-      // Setup progress callback for download tracking
-      const onProgress = (e) => {
-        const progress = Math.round(e.loaded * 100)
-        console.log(`[Perfect Prompt] Model download progress: ${progress}%`)
-        
-        // Update analysis state to show download progress
-        setAnalysis({
-          issues: [`Downloading AI model: ${progress}%`],
-          suggestions: ['Please wait while the AI model downloads...'],
-          optimizedPrompt: prompt,
-          isDownloading: true,
-          downloadProgress: progress
-        })
-      }
-
-      // Perform analysis using LLMService (handles provider selection, caching, etc.)
-      const analysisResult = await llmService.analyzePrompt(prompt, fieldInfo, onProgress)
-      
-      console.log('[Perfect Prompt] Analysis complete:', analysisResult)
-      
-      // Update UI with results
-      setAnalysis(analysisResult)
-      setOptimizedPrompt(analysisResult.optimizedPrompt)
-      
-      // Check if prompt needs clarifying questions (vagueness score < 5)
-      console.log('[AnalysisModal] CLARIFYING DECISION:')
-      console.log('  - Prompt analyzed:', `"${prompt}"`)
-      console.log('  - Vagueness score:', analysisResult.vaguenessScore)
-      console.log('  - Analysis success:', analysisResult.success)
-      console.log('  - Needs clarifying?', analysisResult.vaguenessScore < 5 && analysisResult.success)
-      
-      if (analysisResult.vaguenessScore < 5 && analysisResult.success) {
-        console.log('[AnalysisModal] 🔍 Prompt is vague (score:', analysisResult.vaguenessScore, '), generating clarifying questions...')
-        setPhase('clarifying')
-        await generateClarifyingQuestions()
-      } else {
-        console.log('[AnalysisModal] ✅ Prompt is clear enough (score:', analysisResult.vaguenessScore, '), skipping clarifying questions')
-        setPhase('final')
-      }
-
-    } catch (error) {
-      console.error('[Perfect Prompt] Analysis failed:', error)
-      
-      // Show error in standard format
-      setAnalysis({
-        success: false,
-        issues: [`Analysis failed: ${error.message}`],
-        suggestions: [
-          "Check if PromptAPI is enabled in chrome://flags/",
-          "Ensure sufficient storage space (22GB)",
-          "Try refreshing the page and trying again"
-        ],
-        optimizedPrompt: prompt,
-        vaguenessScore: 0,
-        provider: 'error',
-        confidence: 0
-      })
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
-
-  const generateClarifyingQuestions = async () => {
-    setIsGeneratingQuestions(true)
-    
+  // Background clarity analysis (informational, non-blocking)
+  const startBackgroundClarityAnalysis = async () => {
+    setIsAnalyzingClarity(true)
     try {
       const llmService = LLMService.getInstance()
-      
-      const onProgress = (e) => {
-        const progress = Math.round(e.loaded * 100)
-        setDownloadProgress(progress)
-        setIsDownloading(true)
-      }
-      
-      const questionsResult = await llmService.generateClarifyingQuestions(prompt, fieldInfo, onProgress)
-      
-      if (questionsResult.success && questionsResult.questions?.length > 0) {
-        setClarifyingQuestions(questionsResult.questions)
-        setClarifyingAnswers(questionsResult.questions.map(q => ({ question: q, answer: '' })))
-        setCurrentQuestionIndex(0) // Start from first question
-        setShowClarifyingQuestions(true)
-        console.log('[AnalysisModal] Clarifying questions generated:', questionsResult.questions.length)
-      } else {
-        console.warn('[AnalysisModal] No clarifying questions generated, proceeding to final')
-        setPhase('final')
-      }
+      const result = await llmService.analyzeClarity(prompt)
+      setClarity(result)
+      console.log('[AnalysisModal] Background clarity analysis complete:', result?.clarityScore)
     } catch (error) {
-      console.error('[AnalysisModal] Failed to generate clarifying questions:', error)
-      setPhase('final') // Fallback to final phase
+      console.warn('[AnalysisModal] Background clarity analysis failed:', error)
     } finally {
-      setIsGeneratingQuestions(false)
-      setIsDownloading(false)
+      setIsAnalyzingClarity(false)
     }
   }
 
-  const handleAnswerChange = (questionIndex, answer) => {
-    setClarifyingAnswers(prev => 
-      prev.map((qa, index) => 
-        index === questionIndex ? { ...qa, answer } : qa
-      )
-    )
+  // Generate clarifying question immediately on modal open (independent of goal)
+  const generateClarifyingQuestion = async () => {
+    setIsGeneratingQuestion(true)
+    try {
+      const llmService = LLMService.getInstance()
+      // Generate question based ONLY on original prompt clarity, not optimization goal
+      const result = await llmService.generateSmartQuestion(prompt)
+      
+      if (result?.question) {
+        setClarifyingQuestion(result.question)
+        console.log('[AnalysisModal] Clarifying question generated:', result.question)
+      }
+    } catch (error) {
+      console.warn('[AnalysisModal] Question generation failed:', error)
+    } finally {
+      setIsGeneratingQuestion(false)
+    }
   }
 
-  const handleContinueWithAnswers = async () => {
-    // Filter only answered questions for optimization
-    const answeredQuestions = clarifyingAnswers.filter(qa => qa.answer.trim())
+  // Form submission handler
+  const onSubmit = async (data) => {
+    await handleOptimizeNow(data)
+  }
+
+  // Independent optimization using form data
+  const handleOptimizeNow = async (formData = null) => {
+    const data = formData || form.getValues()
+    const hasGoal = data.optimizationGoal?.trim()
+    const hasAnswer = data.clarifyingAnswer?.trim()
     
-    if (answeredQuestions.length === 0) {
-      console.log('[AnalysisModal] No questions answered, proceeding with original analysis')
-      setPhase('final')
+    // Your original logic - allow optimization with either goal OR answer OR both
+    if (!hasGoal && !hasAnswer) {
+      alert('Please provide either an optimization goal or answer the clarifying question!')
       return
     }
-    
-    console.log(`[AnalysisModal] Continuing with ${answeredQuestions.length} answered questions`)
 
-    setIsAnalyzing(true)
-    setShowClarifyingQuestions(false)
+    setIsOptimizing(true)
+    setShowResults(false) // Reset animation
     
     try {
+      console.log('[AnalysisModal] Starting independent optimization...')
+      console.log('  - Has goal:', hasGoal)
+      console.log('  - Has clarifying answer:', hasAnswer)
+      
       const llmService = LLMService.getInstance()
       
-      const onProgress = (e) => {
-        const progress = Math.round(e.loaded * 100)
-        setDownloadProgress(progress)
-        setIsDownloading(true)
-      }
+      // Use appropriate optimization goal
+      const effectiveGoal = hasGoal 
+        ? data.optimizationGoal 
+        : "general improvement based on clarifying context"
       
-      // Get final optimization with answered questions only
-      const finalResult = await llmService.optimizeWithContext(prompt, answeredQuestions, fieldInfo, onProgress)
+      const result = await llmService.optimizeWithFullContext({
+        originalPrompt: prompt,
+        optimizationGoal: effectiveGoal,
+        clarifyingAnswer: data.clarifyingAnswer
+      })
       
-      console.log('[AnalysisModal] Final optimization complete:', finalResult)
+      setOptimizedPrompt(result.optimizedPrompt)
       
-      // Update analysis with final results
-      setAnalysis(prev => ({
-        ...prev,
-        ...finalResult,
-        issues: prev.issues, // Keep original issues for reference
-        suggestions: prev.suggestions // Keep original suggestions for reference
-      }))
-      setOptimizedPrompt(finalResult.optimizedPrompt)
-      setPhase('final')
+      // Smooth reveal after optimization
+      setTimeout(() => setShowResults(true), 150)
+      
+      console.log('[AnalysisModal] Independent optimization complete')
       
     } catch (error) {
-      console.error('[AnalysisModal] Final optimization failed:', error)
-      setPhase('final') // Still show results even if final optimization failed
+      console.error('[AnalysisModal] Optimization failed:', error)
+      alert('Optimization failed. Please try again!')
     } finally {
-      setIsAnalyzing(false)
-      setIsDownloading(false)
+      setIsOptimizing(false)
     }
   }
+
+
+
+
+
 
   // Analysis now handled by extensible LLMService with session caching
 
@@ -289,35 +236,71 @@ export function AnalysisModal({
           </Button>
         </div>
         
-        <div className="space-y-3">
-          {/* Professional Status Bar */}
-          {analysis && !isAnalyzing && (
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+        {/* Original Prompt - Always Visible */}
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <Label className="text-xs text-muted-foreground block mb-1">Original Prompt:</Label>
+          <p className="text-sm text-gray-800 font-medium leading-relaxed">{prompt}</p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+          {/* ✨ Optimization Goal Input - Hide when results shown */}
+          {!(optimizedPrompt && showResults) && (
+            <Card>
+            <CardContent className="p-4">
+              <FormField
+                control={form.control}
+                name="optimizationGoal"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">
+                      What optimization would you like?
+                    </FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="e.g., Make it more professional, Add technical details, Simplify for beginners..."
+                        {...field}
+                        className="w-full"
+                        autoFocus // 🎯 User Intent First!
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+          )}
+
+          {/* Clean Clarity Display */}
+          {clarity && (
+            <div className="flex items-center justify-between py-2">
               <div className="flex items-center space-x-3">
-                <span className="text-sm font-medium">Clarity Score:</span>
+                <span className="text-sm text-muted-foreground">Clarity:</span>
                 <span className={`text-sm font-mono font-semibold ${
-                  analysis.vaguenessScore >= 7 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : analysis.vaguenessScore >= 4 
-                    ? 'text-yellow-600 dark:text-yellow-400' 
-                    : 'text-red-600 dark:text-red-400'
+                  clarity.clarityScore >= 7 
+                    ? 'text-green-600' 
+                    : clarity.clarityScore >= 4 
+                    ? 'text-yellow-600' 
+                    : 'text-red-600'
                 }`}>
-                  {analysis.vaguenessScore}/10
+                  {clarity.clarityScore}/10
                 </span>
               </div>
               <Badge 
-                variant={analysis.vaguenessScore >= 4 ? 'secondary' : 'destructive'}
-                className={
-                  analysis.vaguenessScore >= 7 
-                    ? 'bg-green-500 text-white dark:bg-green-600 hover:bg-green-500 dark:hover:bg-green-600 pointer-events-none' 
-                    : analysis.vaguenessScore >= 4 
-                    ? 'bg-yellow-500 text-white dark:bg-yellow-600 hover:bg-yellow-500 dark:hover:bg-yellow-600 pointer-events-none' 
-                    : 'pointer-events-none hover:bg-destructive' // Use default destructive styling but no interactions
-                }
+                variant="secondary"
+                className={`pointer-events-none ${
+                  clarity.clarityScore >= 7 
+                    ? 'bg-green-500 text-white' 
+                    : clarity.clarityScore >= 4 
+                    ? 'bg-yellow-500 text-white' 
+                    : 'bg-red-500 text-white'
+                }`}
               >
-                {analysis.vaguenessScore >= 7 ? (
+                {clarity.clarityScore >= 7 ? (
                   <><CheckCircledIcon className="h-3 w-3 mr-1" />Clear</>
-                ) : analysis.vaguenessScore >= 4 ? (
+                ) : clarity.clarityScore >= 4 ? (
                   <><ExclamationTriangleIcon className="h-3 w-3 mr-1" />Needs work</>
                 ) : (
                   <><CrossCircledIcon className="h-3 w-3 mr-1" />Too vague</>
@@ -326,96 +309,56 @@ export function AnalysisModal({
             </div>
           )}
 
-          {/* Professional Loading with Skeleton */}
-          {isAnalyzing && (
+          {/* Background Clarity Analysis Status */}
+          {isAnalyzingClarity && (
             <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg text-sm">
-              <Skeleton className="h-3 w-3 rounded-full" />
-              <span className="text-muted-foreground">
-                {isDownloading ? `Downloading model ${downloadProgress}%` : 'Analyzing...'}
-              </span>
-              {isDownloading && downloadProgress > 0 && (
-                <Progress value={downloadProgress} className="flex-1 max-w-[100px] h-2" />
-              )}
+              <Skeleton className="h-3 w-3 rounded-full animate-pulse" />
+              <span className="text-muted-foreground">Analyzing clarity in background...</span>
             </div>
           )}
 
-          {/* Step-by-Step Clarifying Questions */}
-          {showClarifyingQuestions && phase === 'clarifying' && clarifyingAnswers.length > 0 && (
-            <div className="bg-blue-50/50 border border-blue-200 rounded p-4">
-              {/* Progress Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium">Clarifying Questions</span>
-                  <Badge variant="outline" className="text-xs pointer-events-none">
-                    {currentQuestionIndex + 1} of {clarifyingAnswers.length}
-                  </Badge>
+          {/* ✨ NEW: Smart Clarifying Question Loading - Hide when results shown */}
+          {isGeneratingQuestion && !clarifyingQuestion && !(optimizedPrompt && showResults) && (
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                  <Skeleton className="h-4 w-4 rounded-full animate-pulse" />
+                  <span>Generating clarifying question...</span>
                 </div>
-                
-                {/* Progress Dots */}
-                <div className="flex space-x-1">
-                  {clarifyingAnswers.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`w-2 h-2 rounded-full ${
-                        index <= currentQuestionIndex ? 'bg-blue-500' : 'bg-blue-200'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-              
-              {/* Current Question */}
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-sm font-medium text-blue-900 block mb-2">
-                    {clarifyingAnswers[currentQuestionIndex]?.question}
-                  </Label>
-                  <Input
-                    value={clarifyingAnswers[currentQuestionIndex]?.answer || ''}
-                    onChange={(e) => handleAnswerChange(currentQuestionIndex, e.target.value)}
-                    placeholder="Type your answer here..."
-                    className="w-full"
-                    autoFocus
+              </CardContent>
+            </Card>
+          )}
+
+                      {/* Smart Clarifying Question - Hide when results shown */}
+            {clarifyingQuestion && !(optimizedPrompt && showResults) && (
+              <Card className="border-blue-200 bg-blue-50/30">
+                <CardContent className="p-4">
+                  <FormField
+                    control={form.control}
+                    name="clarifyingAnswer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-blue-900">
+                          One clarifying question to improve your result:
+                        </FormLabel>
+                        <p className="text-sm text-blue-800 mb-3">{clarifyingQuestion}</p>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Your answer (optional - you can skip and optimize anyway)..."
+                            className="w-full min-h-[60px] border-blue-300 focus:border-blue-400"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-              </div>
-              
-              {/* Navigation */}
-              <div className="flex justify-between mt-4">
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-                    disabled={currentQuestionIndex === 0}
-                  >
-                    ← Previous
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentQuestionIndex(currentQuestionIndex + 1)}
-                    disabled={currentQuestionIndex >= clarifyingAnswers.length - 1}
-                  >
-                    Next →
-                  </Button>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm"
-                    onClick={handleContinueWithAnswers}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    Optimize Now
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Focused Results */}
-          {analysis && !isAnalyzing && phase === 'final' && (
+          {/* Optimized Results */}
+          {optimizedPrompt && showResults && (
             <div className="space-y-3">
               {/* Main Result - Editable Optimized Prompt */}
               <div>
@@ -424,6 +367,7 @@ export function AnalysisModal({
                   <Button 
                      variant="ghost" 
                      size="sm" 
+                     type="button"
                      onClick={() => setShowDetails(!showDetails)}
                      className="text-xs h-6 flex items-center space-x-1"
                    >
@@ -442,17 +386,16 @@ export function AnalysisModal({
               {/* Professional Collapsible Details */}
               {showDetails && (
                 <div className="space-y-3">
-                  <Separator />
                   
-                  {/* Issues as Alert */}
-                  {analysis.issues?.length > 0 && (
-                    <Alert variant="destructive">
-                      <CrossCircledIcon className="h-4 w-4" />
+                  {/* Show clarity details when available */}
+                  {clarity?.issues?.length > 0 && (
+                    <Alert>
+                      <ExclamationTriangleIcon className="h-4 w-4" />
                       <AlertDescription>
                         <div className="space-y-1">
                           <span className="font-medium text-xs">Issues Found:</span>
                           <ul className="mt-1 space-y-1 text-xs">
-                            {analysis.issues.map((issue, index) => (
+                            {clarity.issues.map((issue, index) => (
                               <li key={index}>• {issue}</li>
                             ))}
                           </ul>
@@ -461,32 +404,50 @@ export function AnalysisModal({
                     </Alert>
                   )}
                   
-                  {/* Suggestions as Alert */}
-                  {analysis.suggestions?.length > 0 && (
-                    <Alert>
-                      <ExclamationTriangleIcon className="h-4 w-4" />
-                      <AlertDescription>
-                        <div className="space-y-1">
-                          <span className="font-medium text-xs">Suggestions:</span>
-                          <ul className="mt-1 space-y-1 text-xs">
-                            {analysis.suggestions.map((suggestion, index) => (
-                              <li key={index}>• {suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
+                  {clarity?.feedback && (
+                    <div className="p-2 bg-muted/30 rounded text-xs text-muted-foreground">
+                      💡 {clarity.feedback}
+                    </div>
+                  )}
+                  
+                  {/* Show placeholder if no clarity data yet */}
+                  {!clarity && (
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                      💡 Clarity analysis details will appear here when ready
+                    </div>
                   )}
                 </div>
               )}
             </div>
           )}
-        </div>
 
-        {/* Compact Actions */}
-        {analysis && !isAnalyzing && phase === 'final' && (
-          <div className="flex justify-center space-x-2 mt-4 pt-3 border-t">
-            <Button onClick={handleApply} className="flex-1">
+            {/* Bottom Submit Button - Inside Form */}
+            <div className="flex justify-center mt-6 pt-4">
+              {/* Hide Optimize button when results are shown */}
+              {!(optimizedPrompt && showResults) && (
+                <Button 
+                  type="submit"
+                  disabled={isOptimizing}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                {isOptimizing ? (
+                  <>
+                    <Skeleton className="h-4 w-4 rounded-full animate-pulse mr-2" />
+                    Optimizing...
+                  </>
+                ) : (
+                  "✨ Optimize Prompt"
+                )}
+                </Button>
+              )}
+            </div>
+          </form>
+        </Form>
+        
+        {/* Action Bar - Outside Form (for Apply/Copy) */}
+        {optimizedPrompt && showResults && (
+          <div className="flex justify-center space-x-3 mt-4 pt-3 border-t">
+            <Button onClick={handleApply} variant="default">
               Apply to Field
             </Button>
             <Button variant="outline" onClick={handleOptimize} size="sm">

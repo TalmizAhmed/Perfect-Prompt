@@ -43,9 +43,9 @@ export const JSON_FORMATS = {
   
   CLARIFYING_QUESTIONS: `{
   "questions": [
-    "What specific aspect/topic should I focus on?",
-    "What tone or style do you prefer?", 
-    "What is the intended audience or use case?"
+    "....?",
+    "....?", 
+    "....?"
   ]
 }`,
 
@@ -107,6 +107,54 @@ Generate templates that:
 - Are easily customizable
 
 Focus on practical, proven prompt patterns.`
+
+/**
+ * Background clarity analysis system prompt (informational only)
+ * Used for diagnostic feedback on prompt clarity
+ */
+export const CLARITY_ANALYSIS_SYSTEM = `You analyze prompts for clarity issues (diagnostic only).
+
+Rate clarity 1-10 and identify specific gaps:
+- Missing context or audience
+- Vague objectives  
+- Unclear requirements
+- Structural issues
+
+${PROMPT_RULES.JSON_OUTPUT}
+${PROMPT_RULES.CONCISE_RESPONSE}
+
+Expected format: {"clarityScore": 6, "issues": ["...", "..."], "feedback": "..."}`
+
+/**
+ * Smart question generator system prompt
+ * Generates ONE clarifying question based purely on original prompt clarity
+ */
+export const SMART_QUESTION_SYSTEM = `You generate ONE clarifying question to help optimize a prompt.
+
+Given:
+- Original prompt (what user wrote)
+
+Generate the MOST IMPORTANT single question to improve the prompt's clarity and completeness.
+Focus on missing context, vague objectives, unclear requirements, or ambiguous constraints.
+
+${PROMPT_RULES.JSON_OUTPUT}
+${PROMPT_RULES.SPECIFIC_EXAMPLES}
+
+Expected format: {"question": "....", "reasoning": "..."}`
+
+/**
+ * Comprehensive optimization system prompt
+ * Optimizes prompts using original + goal + optional clarifying context
+ */
+export const COMPREHENSIVE_OPTIMIZATION_SYSTEM = `You optimize prompts based on user intent and optional clarifying context.
+
+Transform the original prompt to achieve the user's optimization goal, incorporating any clarifying context provided.
+Preserve the user's original intent while enhancing it toward their goal.
+
+${PROMPT_RULES.JSON_OUTPUT}
+${PROMPT_RULES.NO_APOLOGIZING}
+
+Expected format: {"optimizedPrompt": "...", "improvementsSummary": "...."}`
 
 /**
  * User analysis prompt generator

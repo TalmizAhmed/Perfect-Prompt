@@ -11,6 +11,9 @@ import { LLM_CONFIG, getProvidersByPriority, isFeatureEnabled } from '@/services
 import { 
   PROMPT_ANALYSIS_SYSTEM, 
   CLARIFYING_QUESTIONS_SYSTEM,
+  CLARITY_ANALYSIS_SYSTEM,
+  SMART_QUESTION_SYSTEM,
+  COMPREHENSIVE_OPTIMIZATION_SYSTEM,
   createClarifyingQuestionsPrompt,
   createFinalOptimizationPrompt
 } from '@/prompts/systemPrompts'
@@ -381,6 +384,105 @@ export class LLMService {
   async refreshProviders() {
     this.activeProvider = null
     return await this.selectBestProvider()
+  }
+
+  /**
+   * NEW: Background clarity analysis (informational only, non-blocking)
+   */
+  async analyzeClarity(prompt) {
+    console.log('[LLMService] Starting background clarity analysis...')
+    
+    try {
+      const provider = await this.getOrSelectProvider()
+      const session = await this.sessionCache.getOrCreateSession(
+        provider.providerName,
+        CLARITY_ANALYSIS_SYSTEM,
+        () => provider.createSession({ systemPrompt: CLARITY_ANALYSIS_SYSTEM })
+      )
+      
+      const clarityPrompt = `Analyze this prompt for clarity: "${prompt}"`
+      const response = await session.prompt(clarityPrompt)
+      const result = parseAIResponse(response)
+      
+      console.log('[LLMService] Clarity analysis complete:', result.clarityScore)
+      return result
+      
+    } catch (error) {
+      console.warn('[LLMService] Clarity analysis failed (non-blocking):', error.message)
+      return null // Graceful failure for background analysis
+    }
+  }
+
+  /**
+   * NEW: Generate one smart clarifying question
+   */
+  async generateSmartQuestion(originalPrompt, optimizationGoal) {
+    console.log('[LLMService] Generating smart question...', { optimizationGoal })
+    
+    try {
+      const provider = await this.getOrSelectProvider()
+      const session = await this.sessionCache.getOrCreateSession(
+        provider.providerName,
+        SMART_QUESTION_SYSTEM,
+        () => provider.createSession({ systemPrompt: SMART_QUESTION_SYSTEM })
+      )
+      
+      const questionPrompt = `Original prompt: "${originalPrompt}"
+Optimization goal: "${optimizationGoal}"
+
+Generate the most important clarifying question.`
+      
+      const response = await session.prompt(questionPrompt)
+      const result = parseAIResponse(response)
+      
+      console.log('[LLMService] Smart question generated:', result.question)
+      return result
+      
+    } catch (error) {
+      console.error('[LLMService] Smart question generation failed:', error)
+      return null // Graceful failure - can proceed without question
+    }
+  }
+
+  /**
+   * NEW: Comprehensive optimization using all context
+   */
+  async optimizeWithFullContext({originalPrompt, optimizationGoal, clarifyingAnswer = ""}) {
+    console.log('[LLMService] Starting comprehensive optimization...', { 
+      hasGoal: !!optimizationGoal, 
+      hasAnswer: !!clarifyingAnswer 
+    })
+    
+    try {
+      const provider = await this.getOrSelectProvider()
+      const session = await this.sessionCache.getOrCreateSession(
+        provider.providerName,
+        COMPREHENSIVE_OPTIMIZATION_SYSTEM,
+        () => provider.createSession({ systemPrompt: COMPREHENSIVE_OPTIMIZATION_SYSTEM })
+      )
+      
+      let optimizationPrompt = `Original prompt: "${originalPrompt}"
+Optimization goal: "${optimizationGoal}"`
+      
+      if (clarifyingAnswer.trim()) {
+        optimizationPrompt += `
+Additional context: "${clarifyingAnswer}"`
+      }
+      
+      optimizationPrompt += `
+
+Optimize the prompt to achieve the user's goal.`
+      
+      const response = await session.prompt(optimizationPrompt)
+      const result = parseAIResponse(response)
+      
+      console.log('[LLMService] Comprehensive optimization complete')
+      return result
+      
+    } catch (error) {
+      console.error('[LLMService] Comprehensive optimization failed:', error)
+      throw error
+    }
   }
 
   /**
