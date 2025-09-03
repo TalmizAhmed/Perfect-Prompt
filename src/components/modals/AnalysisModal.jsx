@@ -1,6 +1,5 @@
 import * as React from "react"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { ChevronUpIcon, ChevronDownIcon, CheckCircledIcon, ExclamationTriangleIcon, CrossCircledIcon, Cross2Icon } from "@radix-ui/react-icons"
+import { ChevronUpIcon, ChevronDownIcon, CheckCircledIcon, ExclamationTriangleIcon, CrossCircledIcon } from "@radix-ui/react-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { cn } from "@/lib/utils"
+import { DraggableModal } from "@/components/ui/draggable-modal"
 import { LLMService } from "@/services/llm/LLMService"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -204,37 +203,13 @@ export function AnalysisModal({
     onClose()
   }
 
-  // Custom Dialog without Portal - renders directly in Shadow DOM
-  if (!isOpen) return null
-
   return (
-    <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
-      {/* No overlay - clean modal without background darkening */}
-      
-      {/* Custom content that renders in place without Portal */}
-      <div
-        className={cn(
-          "fixed z-50 w-full max-w-[450px] border bg-background p-4 shadow-lg",
-          "rounded-lg border border-border bg-card text-card-foreground"
-        )}
-        style={{
-          position: 'fixed',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          maxHeight: '80vh',
-          overflow: 'auto'
-        }}
-      >
-        {/* Compact Header */}
-        <div className="flex items-center justify-between mb-3">
-          <DialogPrimitive.Title className="text-lg font-semibold">
-            Perfect Prompt Analysis
-          </DialogPrimitive.Title>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-6 w-6 p-0">
-            <Cross2Icon className="h-4 w-4" />
-          </Button>
-        </div>
+    <DraggableModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Perfect Prompt Analysis"
+      maxWidth="450px"
+    >
         
         {/* Original Prompt - Always Visible */}
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -455,7 +430,6 @@ export function AnalysisModal({
             </Button>
           </div>
         )}
-      </div>
-    </DialogPrimitive.Root>
+    </DraggableModal>
   )
 }
