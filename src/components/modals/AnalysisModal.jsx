@@ -1,11 +1,11 @@
 import * as React from "react"
-import { ChevronUpIcon, ChevronDownIcon, CheckCircledIcon, ExclamationTriangleIcon, CrossCircledIcon } from "@radix-ui/react-icons"
+import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+// Badge component removed - no longer needed without clarity analysis
+// Alert components removed - no longer needed without clarity analysis
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -49,9 +49,7 @@ export function AnalysisModal({
   const [clarifyingQuestion, setClarifyingQuestion] = React.useState("")
   const [optimizedPrompt, setOptimizedPrompt] = React.useState("")
   
-  // Background clarity analysis (informational only)
-  const [clarity, setClarity] = React.useState(null)
-  const [isAnalyzingClarity, setIsAnalyzingClarity] = React.useState(false)
+  // Background analysis removed - focusing on user intent
   
   // Process states  
   const [isGeneratingQuestion, setIsGeneratingQuestion] = React.useState(false)
@@ -76,7 +74,6 @@ export function AnalysisModal({
   // Start background processes when modal opens (non-blocking)
   React.useEffect(() => {
     if (isOpen && prompt) {
-      startBackgroundClarityAnalysis()
       generateClarifyingQuestion() // Generate immediately, independent of goal
       detectCurrentProvider() // Get active LLM provider info
     }
@@ -99,8 +96,6 @@ export function AnalysisModal({
       form.reset() // Reset form values
       setClarifyingQuestion('')
       setOptimizedPrompt('')
-      setClarity(null)
-      setIsAnalyzingClarity(false)
       setIsGeneratingQuestion(false)
       setIsOptimizing(false)
       setShowDetails(false)
@@ -109,34 +104,14 @@ export function AnalysisModal({
     }
   }, [isOpen, form])
 
-  // Background clarity analysis (informational, non-blocking)
-  const startBackgroundClarityAnalysis = async () => {
-    setIsAnalyzingClarity(true)
-    try {
-      const llmService = LLMService.getInstance()
-      const result = await llmService.analyzeClarity(prompt)
-      setClarity(result)
-      console.log('[AnalysisModal] Background clarity analysis complete:', result?.clarityScore)
-    } catch (error) {
-      console.warn('[AnalysisModal] Background clarity analysis failed:', error)
-      // Subtle notification for background process failure
-      toast({
-        variant: "default",
-        title: "Clarity Analysis Unavailable",
-        description: "Background analysis couldn't complete, but you can still optimize your prompt.",
-        duration: 3000
-      })
-    } finally {
-      setIsAnalyzingClarity(false)
-    }
-  }
+  // Clarity analysis removed - focusing on direct user intent and questions only
 
   // Generate clarifying question immediately on modal open (independent of goal)
   const generateClarifyingQuestion = async () => {
     setIsGeneratingQuestion(true)
     try {
       const llmService = LLMService.getInstance()
-      // Generate question based ONLY on original prompt clarity, not optimization goal
+      // Generate question based ONLY on original prompt content, independent of goals
       const result = await llmService.generateSmartQuestion(prompt)
       
       if (result?.question) {
@@ -266,102 +241,60 @@ export function AnalysisModal({
     >
         
         {/* Original Prompt - Always Visible */}
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-          <Label className="text-xs text-muted-foreground block mb-1">Original Prompt:</Label>
-          <p className="text-sm text-gray-800 font-medium leading-relaxed">{prompt}</p>
-        </div>
+        <Label className="text-xs text-muted-foreground block mb-2">Original Prompt: {prompt}</Label>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
           {/* ✨ Optimization Goal Input - Hide when results shown */}
           {!(optimizedPrompt && showResults) && (
-            <Card>
-            <CardContent className="p-4">
-              <FormField
-                control={form.control}
-                name="optimizationGoal"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">
-                      What optimization would you like?
-                    </FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="e.g., Make it more professional, Add technical details, Simplify for beginners..."
-                        {...field}
-                        className="w-full"
-                        autoFocus // 🎯 User Intent First!
-                        onKeyDown={(e) => {
-                          // Prevent Enter from bubbling to original field
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            // Submit the form instead
-                            form.handleSubmit(onSubmit)()
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+             <FormField
+             control={form.control}
+             name="optimizationGoal"
+             render={({ field }) => (
+               <FormItem>
+                 <FormLabel className="text-sm font-medium">
+                   What optimization would you like?
+                 </FormLabel>
+                 <FormControl>
+                   <Input 
+                     placeholder="e.g., Make it more professional, Add technical details, Simplify for beginners..."
+                     {...field}
+                     className="w-full"
+                     autoFocus // 🎯 User Intent First!
+                     onKeyDown={(e) => {
+                       // Prevent Enter from bubbling to original field
+                       if (e.key === 'Enter') {
+                         e.preventDefault()
+                         e.stopPropagation()
+                         // Submit the form instead
+                         form.handleSubmit(onSubmit)()
+                       }
+                     }}
+                   />
+                 </FormControl>
+                 <FormMessage />
+               </FormItem>
+             )}
+           />
           )}
 
-          {/* Clean Clarity Display */}
-          {clarity && (
-            <div className="flex items-center justify-between py-2">
-              <div className="flex items-center space-x-3">
-                <span className="text-sm text-muted-foreground">Clarity:</span>
-                <span className={`text-sm font-mono font-semibold ${
-                  clarity.clarityScore >= 7 
-                    ? 'text-green-600' 
-                    : clarity.clarityScore >= 4 
-                    ? 'text-yellow-600' 
-                    : 'text-red-600'
-                }`}>
-                  {clarity.clarityScore}/10
-                </span>
-              </div>
-              <Badge 
-                variant="secondary"
-                className={`pointer-events-none ${
-                  clarity.clarityScore >= 7 
-                    ? 'bg-green-500 text-white' 
-                    : clarity.clarityScore >= 4 
-                    ? 'bg-yellow-500 text-white' 
-                    : 'bg-red-500 text-white'
-                }`}
-              >
-                {clarity.clarityScore >= 7 ? (
-                  <><CheckCircledIcon className="h-3 w-3 mr-1" />Clear</>
-                ) : clarity.clarityScore >= 4 ? (
-                  <><ExclamationTriangleIcon className="h-3 w-3 mr-1" />Needs work</>
-                ) : (
-                  <><CrossCircledIcon className="h-3 w-3 mr-1" />Too vague</>
-                )}
-              </Badge>
-            </div>
-          )}
+          {/* Clarity analysis removed - modal focuses on user intent only */}
 
-          {/* Background Clarity Analysis Status */}
-          {isAnalyzingClarity && (
-            <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg text-sm">
-              <Skeleton className="h-3 w-3 rounded-full animate-pulse" />
-              <span className="text-muted-foreground">Analyzing clarity in background...</span>
-            </div>
-          )}
-
-          {/* ✨ NEW: Smart Clarifying Question Loading - Hide when results shown */}
+          {/* ✨ Smart Clarifying Question Loading */}
           {isGeneratingQuestion && !clarifyingQuestion && !(optimizedPrompt && showResults) && (
             <Card className="border-blue-200 bg-blue-50/30">
               <CardContent className="p-4">
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <Skeleton className="h-4 w-4 rounded-full animate-pulse" />
-                  <span>Generating clarifying question...</span>
+                <FormLabel className="text-sm font-medium text-blue-900">
+                  Clarifying question to improve your result:
+                </FormLabel>
+                {/* Skeleton below the label */}
+                <div className="mt-3 space-y-3">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[full]" />
+                    <Skeleton className="h-4 w-[90%]" />
+                  </div>
+                  <Skeleton className="h-16 w-full rounded-md" />
                 </div>
               </CardContent>
             </Card>
@@ -377,7 +310,7 @@ export function AnalysisModal({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-sm font-medium text-blue-900">
-                          One clarifying question to improve your result:
+                          Clarifying question to improve your result:
                         </FormLabel>
                         <p className="text-sm text-blue-800 mb-3">{clarifyingQuestion}</p>
                         <FormControl>
@@ -438,42 +371,18 @@ export function AnalysisModal({
               {showDetails && (
                 <div className="space-y-3">
                   
-                  {/* Show clarity details when available */}
-                  {clarity?.issues?.length > 0 && (
-                    <Alert>
-                      <ExclamationTriangleIcon className="h-4 w-4" />
-                      <AlertDescription>
-                        <div className="space-y-1">
-                          <span className="font-medium text-xs">Issues Found:</span>
-                          <ul className="mt-1 space-y-1 text-xs">
-                            {clarity.issues.map((issue, index) => (
-                              <li key={index}>• {issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  {clarity?.feedback && (
-                    <div className="p-2 bg-muted/30 rounded text-xs text-muted-foreground">
-                      💡 {clarity.feedback}
-                    </div>
-                  )}
-                  
-                  {/* Show placeholder if no clarity data yet */}
-                  {!clarity && (
-                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                      💡 Clarity analysis details will appear here when ready
-                    </div>
-                  )}
+                  {/* Details section simplified - no clarity analysis */}
+                  <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded">
+                    💡 <strong>How it works:</strong> Your prompt is analyzed for optimization opportunities. 
+                    The AI suggests the most impactful improvements based on your goals and the answer to the clarifying question.
+                  </div>
                 </div>
               )}
             </div>
           )}
 
             {/* Bottom Submit Button - Inside Form */}
-            <div className="flex justify-center mt-6 pt-4">
+            <div className="flex justify-center mt-6">
               {/* Hide Optimize button when results are shown */}
               {!(optimizedPrompt && showResults) && (
                 <Button 
@@ -497,7 +406,7 @@ export function AnalysisModal({
         
         {/* Action Bar - Outside Form (for Apply/Copy) */}
         {optimizedPrompt && showResults && (
-          <div className="flex justify-center space-x-3 mt-4 pt-3 border-t">
+          <div className="flex justify-center space-x-3 pt-3 border-t">
             <Button onClick={handleApply} variant="default">
               Apply to Field
             </Button>

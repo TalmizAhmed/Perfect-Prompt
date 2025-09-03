@@ -96,7 +96,7 @@ export function DraggableModal({
             style={headerStyle}
           >
             <div className="flex items-center justify-between">
-              <DialogPrimitive.Title className="text-lg font-semibold">
+              <DialogPrimitive.Title className="text-lg font-semibold flex-1">
                 {title}
               </DialogPrimitive.Title>
               {showCloseButton && (
@@ -104,7 +104,7 @@ export function DraggableModal({
                   variant="ghost" 
                   size="sm" 
                   onClick={onClose} 
-                  className="h-6 w-6 p-0 cursor-pointer"
+                  className="h-6 w-6 p-0 cursor-pointer ml-2"
                   type="button"
                 >
                   <Cross2Icon className="h-4 w-4" />
