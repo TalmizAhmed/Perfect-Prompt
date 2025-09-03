@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { DraggableModal } from "@/components/ui/draggable-modal"
+import { ProviderLogo } from "@/components/ui/provider-logo"
 import { LLMService } from "@/services/llm/LLMService"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -57,6 +58,9 @@ export function AnalysisModal({
   const [isOptimizing, setIsOptimizing] = React.useState(false)
   const [showDetails, setShowDetails] = React.useState(false)
   const [showResults, setShowResults] = React.useState(false)
+  
+  // LLM Provider state
+  const [currentProvider, setCurrentProvider] = React.useState(null)
 
   // Get field info for context
   const fieldInfo = React.useMemo(() => {
@@ -74,8 +78,20 @@ export function AnalysisModal({
     if (isOpen && prompt) {
       startBackgroundClarityAnalysis()
       generateClarifyingQuestion() // Generate immediately, independent of goal
+      detectCurrentProvider() // Get active LLM provider info
     }
   }, [isOpen, prompt])
+
+  // Get current LLM provider for logo display
+  const detectCurrentProvider = async () => {
+    try {
+      const llmService = LLMService.getInstance()
+      const providerInfo = llmService.getCurrentProviderInfo()
+      setCurrentProvider(providerInfo)
+    } catch (error) {
+      console.warn('[AnalysisModal] Could not detect LLM provider:', error)
+    }
+  }
 
   // Reset state when modal closes
   React.useEffect(() => {
@@ -89,6 +105,7 @@ export function AnalysisModal({
       setIsOptimizing(false)
       setShowDetails(false)
       setShowResults(false)
+      setCurrentProvider(null)
     }
   }, [isOpen, form])
 
@@ -234,11 +251,17 @@ export function AnalysisModal({
     onClose()
   }
 
+
   return (
     <DraggableModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Perfect Prompt Analysis"
+      title={
+        <div className="flex items-center justify-between w-full">
+          <span>Perfect Prompt Analysis</span>
+          <ProviderLogo provider={currentProvider} size="sm" />
+        </div>
+      }
       maxWidth="450px"
     >
         

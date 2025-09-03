@@ -379,6 +379,29 @@ export class LLMService {
   }
 
   /**
+   * Get current active provider information for UI display
+   * @returns {Object|null} Provider metadata or null if no provider active
+   */
+  getCurrentProviderInfo() {
+    try {
+      if (this.activeProvider) {
+        return this.activeProvider.metadata
+      }
+      
+      // Fallback to first available provider if no active provider
+      if (this.providers.size > 0) {
+        const firstProvider = Array.from(this.providers.values())[0]
+        return firstProvider.metadata
+      }
+      
+      return null
+    } catch (error) {
+      console.warn('[LLMService] Error getting current provider info:', error)
+      return null
+    }
+  }
+
+  /**
    * Force refresh of provider availability
    */
   async refreshProviders() {
