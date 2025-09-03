@@ -127,9 +127,9 @@ Expected format: {"clarityScore": 6, "issues": ["...", "..."], "feedback": "..."
 
 /**
  * Smart question generator system prompt
- * Generates ONE clarifying question based purely on original prompt clarity
+ * Generates ONE high-impact clarifying question based purely on original prompt clarity
  */
-export const SMART_QUESTION_SYSTEM = `You generate ONE clarifying question to help optimize a prompt.
+export const SMART_QUESTION_SYSTEM = `You are an expert prompt consultant. Generate ONE strategic clarifying question that will have the biggest impact on improving the given prompt.
 
 Given:
 - Original prompt (what user wrote)

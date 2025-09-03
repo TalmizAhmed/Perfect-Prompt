@@ -414,10 +414,10 @@ export class LLMService {
   }
 
   /**
-   * NEW: Generate one smart clarifying question
+   * NEW: Generate one smart clarifying question (independent of optimization goal)
    */
-  async generateSmartQuestion(originalPrompt, optimizationGoal) {
-    console.log('[LLMService] Generating smart question...', { optimizationGoal })
+  async generateSmartQuestion(originalPrompt) {
+    console.log('[LLMService] Generating smart question based on prompt clarity...')
     
     try {
       const provider = await this.getOrSelectProvider()
@@ -428,9 +428,8 @@ export class LLMService {
       )
       
       const questionPrompt = `Original prompt: "${originalPrompt}"
-Optimization goal: "${optimizationGoal}"
 
-Generate the most important clarifying question.`
+Generate the most important clarifying question to improve this prompt's clarity and completeness.`
       
       const response = await session.prompt(questionPrompt)
       const result = parseAIResponse(response)

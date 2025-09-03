@@ -14,6 +14,7 @@ import { LLMService } from "@/services/llm/LLMService"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { useToast } from "@/hooks/use-toast"
 
 
 
@@ -31,6 +32,9 @@ export function AnalysisModal({
   onOptimize = () => {},
   onApply = () => {}
 }) {
+  // Hooks
+  const { toast } = useToast()
+  
   // Form setup
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -98,6 +102,13 @@ export function AnalysisModal({
       console.log('[AnalysisModal] Background clarity analysis complete:', result?.clarityScore)
     } catch (error) {
       console.warn('[AnalysisModal] Background clarity analysis failed:', error)
+      // Subtle notification for background process failure
+      toast({
+        variant: "default",
+        title: "Clarity Analysis Unavailable",
+        description: "Background analysis couldn't complete, but you can still optimize your prompt.",
+        duration: 3000
+      })
     } finally {
       setIsAnalyzingClarity(false)
     }
@@ -117,13 +128,25 @@ export function AnalysisModal({
       }
     } catch (error) {
       console.warn('[AnalysisModal] Question generation failed:', error)
+      // Subtle notification for background process failure
+      toast({
+        variant: "default",
+        title: "Clarifying Question Unavailable",
+        description: "Couldn't generate a clarifying question, but optimization will still work.",
+        duration: 3000
+      })
     } finally {
       setIsGeneratingQuestion(false)
     }
   }
 
-  // Form submission handler
-  const onSubmit = async (data) => {
+  // Form submission handler with proper event isolation
+  const onSubmit = async (data, event) => {
+    // Critical: Stop event from bubbling to original page
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
     await handleOptimizeNow(data)
   }
 
@@ -135,7 +158,11 @@ export function AnalysisModal({
     
     // Your original logic - allow optimization with either goal OR answer OR both
     if (!hasGoal && !hasAnswer) {
-      alert('Please provide either an optimization goal or answer the clarifying question!')
+      toast({
+        variant: "destructive",
+        title: "Input Required",
+        description: "Please provide either an optimization goal or answer the clarifying question!"
+      })
       return
     }
 
@@ -169,7 +196,11 @@ export function AnalysisModal({
       
     } catch (error) {
       console.error('[AnalysisModal] Optimization failed:', error)
-      alert('Optimization failed. Please try again!')
+      toast({
+        variant: "destructive",
+        title: "Optimization Failed",
+        description: "Something went wrong while optimizing your prompt. Please try again!"
+      })
     } finally {
       setIsOptimizing(false)
     }
@@ -238,6 +269,15 @@ export function AnalysisModal({
                         {...field}
                         className="w-full"
                         autoFocus // 🎯 User Intent First!
+                        onKeyDown={(e) => {
+                          // Prevent Enter from bubbling to original field
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            // Submit the form instead
+                            form.handleSubmit(onSubmit)()
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -322,6 +362,15 @@ export function AnalysisModal({
                             {...field}
                             placeholder="Your answer (optional - you can skip and optimize anyway)..."
                             className="w-full min-h-[60px] border-blue-300 focus:border-blue-400"
+                            onKeyDown={(e) => {
+                              // Prevent Enter from bubbling to original field
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                // Submit the form instead
+                                form.handleSubmit(onSubmit)()
+                              }
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -356,6 +405,10 @@ export function AnalysisModal({
                   value={optimizedPrompt}
                   onChange={(e) => setOptimizedPrompt(e.target.value)}
                   placeholder="Optimized prompt will appear here (you can edit it)..."
+                  onKeyDown={(e) => {
+                    // Prevent any key events from bubbling to original field
+                    e.stopPropagation()
+                  }}
                 />
               </div>
               {/* Professional Collapsible Details */}
